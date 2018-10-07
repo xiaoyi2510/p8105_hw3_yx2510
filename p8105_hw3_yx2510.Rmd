@@ -1,0 +1,81 @@
+---
+title: "P8105_hw3_yx2510"
+author: "Yi Xiao"
+date: "06/10/2018"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(magrittr)
+```
+# problem one
+load the data
+```{r}
+brfss_data = p8105.datasets::brfss_smart2010 %>% 
+  janitor::clean_names() %>%
+  rename(state = locationabbr, county_state = locationdesc) %>%
+  filter(topic == "Overall Health") %>%
+  filter(response %in% c("Excellent", "Very good", "Good", "Fair", "Poor")) %>%
+  mutate(response = as.factor(response))
+  
+brfss_data
+```
+### questions
+#### 1. In 2002, which states were observed at 7 locations?
+```{r}
+brfss_data %>% 
+  group_by(state) %>%
+  summarize(location_num = n_distinct(geo_location)) %>%
+  filter(location_num == 7)
+
+```
+There are seven states satisfy the standard, which are CT, MT, NH, NM, OR, TN and UT.
+
+#### 2. Make a “spaghetti plot” that shows the number of observations in each state from 2002 to 2010.
+```{r}
+brfss_data %>% 
+         group_by(state, year) %>% 
+         summarize(n_observ = n()) %>% 
+         ggplot(aes(x = year, y = n_observ)) + 
+         geom_line(aes(color = state)) + 
+         labs(
+                 x = "Year", 
+                 y = "Number of observations") + 
+          theme(
+                  legend.position = "bottom"
+               ) + 
+          guides(color = guide_legend(ncol = 20))
+```
+
+#### 3. Make a table showing, for the years 2002, 2006, and 2010, the mean and standard deviation of the proportion of “Excellent” responses across locations in NY State.
+```{r}
+filter(brfss_data, 
+       state == "NY",
+       year %in% c(2002, 2006, 2010),
+       response == "Excellent") %>%
+  group_by(year) %>% 
+  summarize(excel_sd = sd(data_value),
+            excel_mean = mean(data_value)) %>% 
+  knitr::kable(digits = 2)
+```
+
+#### For each year and state, compute the average proportion in each response category (taking the average across locations in a state). Make a five-panel plot that shows, for each response category separately, the distribution of these state-level averages over time.
+
+```{r}
+brfss_data %>%
+        group_by(year, state, response) %>%
+        summarise(response_mean = mean(data_value)) %>%
+        ggplot(aes(x = year, y = response_mean)) +
+        geom_line(aes(color = state)) +
+        facet_grid(. ~ response) +
+        theme(legend.position = "bottom")  + 
+          guides(color = guide_legend(ncol = 20))
+```
+
+# problem 2
+load and clean the data
+```{r}
+brfss_data = p8105.datasets::instacart %>%
+        janitor::clean_names() 
+```
+
