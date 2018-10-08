@@ -75,7 +75,49 @@ brfss_data %>%
 # problem 2
 load and clean the data
 ```{r}
-brfss_data = p8105.datasets::instacart %>%
+instacrat_data = p8105.datasets::instacart %>%
         janitor::clean_names() 
+head(instacrat_data)
 ```
+This dataset contains `r nrow(instacrat_data)` observations and `r ncol(instacrat_data)` columns. Some key variables include product_id, product_name, aisle.
+
+## questions
+#### 1.How many aisles are there, and which aisles are the most items ordered from?
+```{r}
+n_distinct(instacrat_data$aisle, na.rm = TRUE)
+```
+There are 134 distinct aisles.
+```{r}
+instacrat_data %>%
+        group_by(aisle) %>%
+        summarise(aisle_num = n()) %>%
+        filter(aisle_num == max())
+```
+Fresh vegetables is the aisle with the most item bought from.
+
+#### 2. Make a plot that shows the number of items ordered in each aisle. Order aisles sensibly, and organize your plot so others can read it.
+Since 134 aisles are contained in the dataset, we first divide them into seveal groups for better display. 
+```{r}
+    # group the dataset by aisle and rearrange in descendant order
+
+plot_aisle_num = function(left, right) {  
+        instacrat_data %>%
+        group_by(aisle) %>%
+        summarise(aisle_num = n()) %>%
+        filter(aisle_num >= left & aisle_num < right) %>%
+        ggplot(aes(x = aisle, y = aisle_num)) +
+        geom_bar(stat = "identity")
+}
+
+plot_aisle_num (0, 1000)
+plot_aisle_num (1000, 2000)
+plot_aisle_num (2000, 6000)
+plot_aisle_num (6000, 13000)
+plot_aisle_num (13000, 151000)
+```
+
+
+#### 3.Make a table showing the most popular item aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”
+
+#### 4. Make a table showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week; format this table for human readers (i.e. produce a 2 x 7 table).
 
