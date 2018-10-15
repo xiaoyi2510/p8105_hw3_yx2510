@@ -2,7 +2,7 @@
 title: "P8105_hw3_yx2510"
 author: "Yi Xiao"
 date: "06/10/2018"
-output: html_document
+output: github_document
 ---
 ```{r}
 library(tidyverse)
@@ -15,9 +15,9 @@ load the data
 brfss_data = p8105.datasets::brfss_smart2010 %>% 
   janitor::clean_names() %>%
   rename(state = locationabbr, county_state = locationdesc) %>%
-  filter(topic == "Overall Health") %>%
+  filter(topic == "Overall Health") %>% # focus on overall health
   filter(response %in% c("Excellent", "Very good", "Good", "Fair", "Poor")) %>%
-  mutate(response = as.factor(response))
+  mutate(response = factor(response, levels = c("Excellent", "Very good", "Good", "Fair", "Poor")))
   
 brfss_data
 ```
@@ -25,28 +25,34 @@ brfss_data
 #### 1. In 2002, which states were observed at 7 locations?
 ```{r}
 brfss_data %>% 
+  filter(year == "2002") %>%
   group_by(state) %>%
   summarize(location_num = n_distinct(geo_location)) %>%
-  filter(location_num == 7)
+  filter(location_num == 7) %>%
+  knitr::kable()
 
 ```
-There are seven states satisfy the standard, which are CT, MT, NH, NM, OR, TN and UT.
+There are three states satisfy the standard, which are CT, FL, NC.
 
 #### 2. Make a “spaghetti plot” that shows the number of observations in each state from 2002 to 2010.
 ```{r}
 brfss_data %>% 
-         group_by(state, year) %>% 
-         summarize(n_observ = n()) %>% 
-         ggplot(aes(x = year, y = n_observ)) + 
-         geom_line(aes(color = state)) + 
-         labs(
-                 x = "Year", 
-                 y = "Number of observations") + 
-          theme(
-                  legend.position = "bottom"
+  group_by(state, year) %>% 
+  summarize(n_observ = n()) %>%  # compute the number of observations on each state in the given year
+  ggplot(aes(x = year, y = n_observ)) +  # make a plot
+      geom_line(aes(color = state)) + 
+      labs(  
+        title = "Figure 1: Spaghetti plot of number of observations in each states from 2002 to 2010",               x = "Year", 
+        y = "Number of observations") + 
+      theme(
+                  legend.position = "bottom",
+                  legend.key.width = unit(.1, "in")
                ) + 
-          guides(color = guide_legend(ncol = 20))
+     guides(color = guide_legend(ncol = 20)) 
+      
 ```
+Figure 1 shows the number of observations for each states and most states have less than 10 observations. Florida is the only state having more than 20 observations. The number in Florida flucuated a lot while observations in the rest states are relatively constant.
+
 
 #### 3. Make a table showing, for the years 2002, 2006, and 2010, the mean and standard deviation of the proportion of “Excellent” responses across locations in NY State.
 ```{r}
@@ -55,23 +61,33 @@ filter(brfss_data,
        year %in% c(2002, 2006, 2010),
        response == "Excellent") %>%
   group_by(year) %>% 
-  summarize(excel_sd = sd(data_value),
-            excel_mean = mean(data_value)) %>% 
+  summarize(excel_sd = sd(data_value, na.rm = TRUE),
+            excel_mean = mean(data_value, na.rm = TRUE)) %>% 
   knitr::kable(digits = 2)
 ```
+The proportion of excellence decrease over those years in NY state.
 
 #### For each year and state, compute the average proportion in each response category (taking the average across locations in a state). Make a five-panel plot that shows, for each response category separately, the distribution of these state-level averages over time.
 
 ```{r}
 brfss_data %>%
         group_by(year, state, response) %>%
-        summarise(response_mean = mean(data_value)) %>%
-        ggplot(aes(x = year, y = response_mean)) +
-        geom_line(aes(color = state)) +
-        facet_grid(. ~ response) +
-        theme(legend.position = "bottom")  + 
-          guides(color = guide_legend(ncol = 20))
-```
+        summarise(response_mean = mean(data_value, na.rm = TRUE)) %>% # calculate the proportion for each
+        ggplot(aes(x = factor(year), y = response_mean)) +         # response in the give year and state
+        geom_violin(aes(fill = factor(response))) +
+        facet_grid(. ~ response) +                                 # make a 5-panel plot
+        labs(
+             title = "Figure 2 proportion of different responses across states from 2002 to 2010",
+             x = "year",
+             y = "response proportion"
+        ) +
+        theme(legend.position = "bottom", 
+               axis.text.x = element_text(angle = 45, hjust = 1)) +
+         viridis::scale_fill_viridis(name = "Year",
+                                discrete = TRUE, 
+                                option = "magma") 
+``` 
+Figure 2 shows the desity of the different response rate across states from 2002 to 2010. The proportion of response increased from poor to very good and drop a little when it comes to excellent. The proportion of responses also remained stable over the investigated period. 
 
 # problem 2
 load and clean the data
@@ -79,8 +95,11 @@ load and clean the data
 instacrat_data = p8105.datasets::instacart %>%
         janitor::clean_names() 
 head(instacrat_data)
+
 ```
-This dataset contains `r nrow(instacrat_data)` observations and `r ncol(instacrat_data)` columns. Some key variables include product_id, product_name, aisle.
+This dataset contains data on online store orders during 2017. There are `r nrow(instacrat_data)` observations and `r ncol(instacrat_data)` columns. Some key variables include product_id, product_name, day and date, reorder times.
+
+
 
 ## questions
 #### 1.How many aisles are there, and which aisles are the most items ordered from?
@@ -89,40 +108,30 @@ n_distinct(instacrat_data$aisle, na.rm = TRUE)
 ```
 There are 134 distinct aisles.
 ```{r}
-instacrat_data %>%
+items = instacrat_data %>%
         group_by(aisle) %>%
         summarise(aisle_num = n()) %>%
-        filter(aisle_num == max())
+        arrange(desc(aisle_num))
+items
 ```
 Fresh vegetables is the aisle with the most item bought from.
 
 #### 2. Make a plot that shows the number of items ordered in each aisle. Order aisles sensibly, and organize your plot so others can read it.
 Since 134 aisles are contained in the dataset, we first divide them into seveal groups for better display. 
+
 ```{r}
-    # group the dataset by aisle and rearrange in descendant order
-
-plot_aisle_num = function(left, right) {  
-        instacrat_data %>%
-        group_by(aisle) %>%
-        summarise(aisle_num = n()) %>%
-        arrange(desc(aisle_num)) %>%
-        filter(aisle_num >= left & aisle_num < right) %>%
-        ggplot(aes(x = aisle, y = aisle_num)) +
-        geom_bar(stat = "identity") +
-        geom_text(aes(label = aisle_num), size = 2.5, position = position_dodge(width = 0.9), angle = 0, vjust = - 0.5) +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-        labs(
-                 x = "Aisle", 
-                 y = "Number of Items") 
-        
-}
-
-plot_aisle_num (0, 1000)
-plot_aisle_num (1000, 2000)
-plot_aisle_num (2000, 5000)
-plot_aisle_num (5000, 10000)
-plot_aisle_num (10000, 15000)
-plot_aisle_num (15000, 151000)
+instacrat_data %>%
+  group_by(aisle) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>% 
+  mutate(aisle = forcats::fct_reorder(aisle, n, .desc = TRUE)) %>% 
+  ggplot(aes(x = aisle, y = n)) + 
+    coord_flip() + 
+    geom_bar(stat = "identity") +
+    labs(y = "number of orders", 
+         x = "aisle", 
+        title = "Figure 3: Number of orders across all aisles" ) 
+    ggsave(filename = "# of order.png", height = 30, units = "cm")
 
 ```
 
@@ -134,6 +143,9 @@ instacrat_data %>%
         group_by(aisle, product_name) %>%
         summarise(pro_num = n()) %>%
         filter(pro_num == max(pro_num)) %>%
+        arrange(desc(pro_num)) %>%
+       rename( "Product Name" = product_name, 
+         "Number of Orders" = pro_num) %>%
         knitr::kable()
   
 ```
@@ -141,27 +153,31 @@ instacrat_data %>%
 
 #### 4. Make a table showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week; format this table for human readers (i.e. produce a 2 x 7 table).
 ```{r}
-instacrat_data %>%
-        filter(product_name %in% c("Pink Lady Apples", "Coffee Ice Cream")) %>%
-        group_by(product_name, order_dow) %>% 
-        summarize(mean_hour = round(mean(order_hour_of_day))) %>%
-        spread(key = order_dow, value = mean_hour) %>%
-        knitr::kable()
+
+instacrat_data %>% 
+    filter(product_name %in% c("Pink Lady Apples", "Coffee Ice Cream")) %>% 
+    group_by(product_name, order_dow) %>% 
+    summarize(mean_hour = mean(order_hour_of_day)) %>%
+    spread(key = order_dow, value = mean_hour) %>% 
+    knitr::kable(digits = 2)
                     
 ```
 
 # problem 3 
 load the data first 
 ```{r}
-noaa_data = p8105.datasets::ny_noaa
+noaa_data = p8105.datasets::ny_noaa %>%
+janitor::clean_names()
 str(noaa_data)
 head(noaa_data)
 ```
-The dataset has `r nrow(noaa_data)` observations and `r ncol(noaa_data)` variables including information on date, precipitation, snow and snow depth, maximum and minimum temperature. All of the variables have missing values except id and date. ????issue
+The dataset contains weather information for 5 weather station in New York from 1981 to 2010. The dataset has `r nrow(noaa_data)` observations and `r ncol(noaa_data)` variables including information on date, precipitation, snow and snow depth in millimeters, maximum and minimum temperature in degree celcucius. All of the variables have missing values except id and date. The proportion of some variables are as follows :
+prcp: `r sum(is.na(noaa_data$prcp))/2595176`, snow: `r sum(is.na(noaa_data$snow))/2595176`, snwd: `r sum(is.na(noaa_data$snwd))/2595176`, which can be an issue when we do data analysis. 
 
 ## questions
 #### 1. Do some data cleaning. Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable units. For snowfall, what are the most commonly observed values? Why?
 ```{r}
+# do some data cleaning
 noaa_tidy_data =
         separate(noaa_data, date, into = c("year", "month", "day"), sep = "-") %>%
         mutate(prcp = prcp/10,
@@ -174,12 +190,14 @@ noaa_tidy_data =
         ) 
 noaa_tidy_data
 
+# find the most common value for snowfall
 noaa_tidy_data %>%
         group_by(snow) %>%
         summarise(snow_frequency = n()) %>%
-        arrange(desc(snow_frequency))
+        arrange(desc(snow_frequency)) %>%
+        top_n(1)
 ```
-
+The most common value is 0.
 
 #### 2.Make a two-panel plot showing the average temperature in January and in July in each station across years. Is there any observable / interpretable structure? Any outliers?
 ```{r}
@@ -195,18 +213,29 @@ noaa_tidy_data %>%
         theme(legend.position = "bottom") +
         theme(axis.text.x = element_text(size = 7, angle = 45)) +
         labs( x = "year",
-              y = "average of maximum and minimum teperature in Januray and July")
+              y = "average of maximum and minimum teperature in Januray and July",
+              title = "Figure 4 the average maximum and minimum temperature in January and July")
 ```
-
+Figure 4 shows the average minimum and maximum temperature in New York in January and July. We can know from the plot that there is greater variation in the average temperature in January over the period.
 
 #### 3.Make a two-panel plot showing: 
 (i) tmax vs tmin for the full dataset (note that a scatterplot may not be the best option).
 ```{r}
 noaa_tidy_data %>%
         ggplot(aes(x = tmin, y = tmax)) +
-        geom_hex()
+        geom_hex() +
+        labs(
+        title = "Figure 5 Maxium temperature and minium temperature",
+        y = "Maxium temperature/degree Celcius",
+        x = "Minium temperature/degree Celcius"
+    ) +
+        geom_smooth(se = FALSE)
         
 ```
+Figure 5 shows the relationship between the minimum and maximum temperature. We can see there is a positive correlation between the minimum temperature and the maximum temperature.
+
+
+
 (ii) make a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year
 ```{r}
 noaa_tidy_data %>%
@@ -215,8 +244,9 @@ noaa_tidy_data %>%
         geom_boxplot() +
         labs(
                 x = "Year",
-                y = "Snowfall between 0 and 100"
+                y = "Snowfall between 0 and 100",
+                title = "Figure 6 snowfall data from 1981 to 2010 "
         ) +
         theme(axis.text.x = element_text(size = 7, angle = 45))
 ```
-
+We can see from Figure 6 that the snow distribution in every year is similar.
